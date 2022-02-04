@@ -1,34 +1,79 @@
 from flask import jsonify, request
 from http import HTTPStatus
 from app.models.animes_model import Animes
+from psycopg2.errors import UniqueViolation
+
+
+available_keys = ['anime', 'released_date', 'seasons']
 
 def get_animes():
-    animes = Animes.get_all_animes()
 
-    animes_keys = ["id", "anime", "released_date", "seasons"]
-    
-    animes_list = [dict(zip(animes_keys, anime)) for anime in animes]
+    try:
+        animes = Animes.get_all_animes()
 
-    print(type(animes_list))
 
-    return jsonify(animes_list), HTTPStatus.CREATED
+        animes_list = Animes.serialize_method(animes)
+
+        return jsonify(animes_list), HTTPStatus.OK
+    except:
+        return {'msg': 'Error'}, HTTPStatus.BAD_GATEWAY
+
 
 def create_animes():
-    data = request.get_json()
+   
+    try:
+        data = request.get_json()
 
-    anime = Animes(**data)
+        anime = Animes(**data)
 
-    register_anime = anime.create_animes_model()
+        register_anime = anime.create_animes_model()
+        
+    except KeyError:
+        data_keys = list(data.keys())
+        keys_erro = set(data_keys) - set(available_keys) 
+        return jsonify({'available_keys': f'expected {available_keys}, received {keys_erro}' }), HTTPStatus.UNPROCESSABLE_ENTITY
+    except UniqueViolation:
+        return {'msg':'Anime already exists'}, HTTPStatus.CONFLICT
 
-    animes_keys = ["id", "anime", "released_date", "seasons"]
-    register_anime = dict(zip(animes_keys, register_anime))
+    register_anime = Animes.serialize_method(register_anime)
 
     return jsonify(register_anime), HTTPStatus.CREATED
-def find_animes(id):
-    return jsonify({'msg': 'encontrou um anime'}), HTTPStatus.OK
+    
+def update_animes(id):
+    try:
+        data = request.get_json()
+
+        update_anime = Animes.patch_animes(id, payload=data)
+
+        if not update_anime:
+           return {'msg': 'id não encontrado'}, HTTPStatus.NOT_FOUND
+    except:
+        data_keys = list(data.keys())
+        keys_erro = set(data_keys) - set(available_keys) 
+        return jsonify({'available_keys': f'expected {available_keys}, received {keys_erro}'}), HTTPStatus.UNPROCESSABLE_ENTITY
+
+       
+    serializer_anime = Animes.serialize_method(update_anime)
+        
+    return jsonify(serializer_anime), HTTPStatus.ACCEPTED
+    
 
 def delete_animes(id):
-    return jsonify({'msg': 'Deletou um anime'}), HTTPStatus.OK
+    deleted_anime = Animes.delete_animes(id)
 
-def patch_animes(id):
-    return jsonify({'msg': 'Atualizado'}), HTTPStatus.OK
+    if not deleted_anime:
+        return {'msg': 'id não encontrado'}, HTTPStatus.NOT_FOUND
+        
+    serializer_anime = Animes.serialize_method(deleted_anime)
+    
+    return jsonify(serializer_anime), HTTPStatus.ACCEPTED
+
+def find_anime(id):
+    finded_anime = Animes.find_anime(id)
+
+    if not finded_anime:
+        return {'msg': 'id não encontrado'}, HTTPStatus.NOT_FOUND
+        
+    serializer_anime = Animes.serialize_method(finded_anime)
+    
+    return jsonify(serializer_anime), HTTPStatus.ACCEPTED

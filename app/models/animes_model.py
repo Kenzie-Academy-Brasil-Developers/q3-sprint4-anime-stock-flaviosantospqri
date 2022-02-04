@@ -1,11 +1,99 @@
 import psycopg2
 from app.models import DatabaseConector
+from psycopg2 import sql
+
 
 class Animes(DatabaseConector):
+    animes_keys = ["id", "anime", "released_date", "seasons"]
     def __init__(self, *args, **kwargs) -> None:
-        self.anime = kwargs['anime']
+        self.anime = kwargs['anime'].title()
         self.released_date = kwargs['released_date']
         self.seasons = kwargs['seasons']
+
+    @classmethod
+    def patch_animes(cls, id, payload):
+        cls.get_conn_cur()
+
+        columns = [sql.Identifier(key) for key in payload.keys()]
+
+        values = [sql.Literal(value) for value in payload.values()]
+
+        query = sql.SQL(
+            """
+                UPDATE 
+                    animes
+                SET
+                    ({columns}) = ROW({values})
+                WHERE 
+                    id={id}
+                RETURNING *
+            """
+        ).format(
+            id=sql.Literal(id),
+            columns=sql.SQL(",").join(columns),
+            values=sql.SQL(",").join(values),
+        )
+        cls.cur.execute(query)
+        
+        update_anime = cls.cur.fetchone()
+        
+        cls.commit_cur_conn_close()
+        
+        return update_anime
+    
+    @classmethod
+    def find_anime(cls, id):
+        cls.get_conn_cur()
+
+
+        query = sql.SQL(
+            """
+                SELECT * FROM animes
+                WHERE 
+                    id={id}
+            """
+        ).format(
+            id=sql.Literal(id)
+        )
+        cls.cur.execute(query)
+        
+        finded_anime = cls.cur.fetchone()
+
+        cls.commit_cur_conn_close()
+        
+        return finded_anime
+
+
+    @classmethod
+    def delete_animes(cls, id):
+        cls.get_conn_cur()
+
+
+        query = sql.SQL(
+            """
+                DELETE FROM animes
+                WHERE 
+                    id={id}
+                RETURNING *
+            """
+        ).format(
+            id=sql.Literal(id)
+        )
+        cls.cur.execute(query)
+        
+        deleted_anime = cls.cur.fetchone()
+        
+        cls.commit_cur_conn_close()
+        
+        return deleted_anime
+    
+    
+    @staticmethod
+    def serialize_method(data, keys = animes_keys):
+        if type(data) is tuple:
+            return dict(zip(keys, data))
+        if type(data) is list:
+            return [dict(zip(keys, anime)) for anime in data]
 
     def create_animes_model(self):
         self.get_conn_cur()
