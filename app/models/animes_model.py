@@ -11,8 +11,22 @@ class Animes(DatabaseConector):
         self.seasons = kwargs['seasons']
 
     @classmethod
+    def create_table_base(cls):
+        cls.get_conn_cur()
+        cls.cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS animes(
+            id BIGSERIAL PRIMARY KEY,
+            anime VARCHAR(100) NOT NULL UNIQUE,
+            released_date DATE NOT NULL,
+            seasons INTEGER NOT NULL
+            );
+            """
+        )
+    @classmethod
     def patch_animes(cls, id, payload):
         cls.get_conn_cur()
+        cls.create_table_base()
 
         columns = [sql.Identifier(key) for key in payload.keys()]
 
@@ -44,6 +58,7 @@ class Animes(DatabaseConector):
     @classmethod
     def find_anime(cls, id):
         cls.get_conn_cur()
+        cls.create_table_base()
 
 
         query = sql.SQL(
@@ -67,7 +82,7 @@ class Animes(DatabaseConector):
     @classmethod
     def delete_animes(cls, id):
         cls.get_conn_cur()
-
+        cls.create_table_base()
 
         query = sql.SQL(
             """
@@ -97,7 +112,7 @@ class Animes(DatabaseConector):
 
     def create_animes_model(self):
         self.get_conn_cur()
-
+        self.create_table_base()
         self.cur.execute(
             """
             INSERT INTO 
@@ -117,7 +132,7 @@ class Animes(DatabaseConector):
     @classmethod
     def get_all_animes(cls):
        cls.get_conn_cur()
-       
+       cls.create_table_base()
        cls.cur.execute(
            """
            SELECT * FROM animes;
